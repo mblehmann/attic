@@ -1,2 +1,2 @@
-# smith
+# attic
 Finance app
