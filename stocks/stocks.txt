@@ -1,0 +1,36 @@
+Stock Portfolio
+
+Aggregates all the stock investments.
+
+
+Stock Investment
+
+Stores all investment operations regarding a single stock.
+
+
+Stock Operations
+
+Represents a single operation of buying or selling shares. It has information about the stock, day, value (share, fees,
+total), and number of shares.
+
+The StockOperation is the base abstract class.
+
+Attributes:
+ - stock
+ - day
+ - shares
+ - price
+ - fees
+
+Property:
+ - total_value
+
+Abstract:
+ - is_buy
+
+Others
+ - __repr__
+
+The buy and sell operations inherit the StockOperation and implement/override the following methods:
+ - is_buy
+ - __repr__
