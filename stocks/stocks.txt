@@ -5,7 +5,8 @@ Aggregates all the stock investments.
 
 Stock Investment
 
-Stores all investment operations regarding a single stock.
+Stores all investment operations regarding a single stock. It has information about the current number of shares, market
+value, fees, past realizations, and dividends
 
 
 Stock Operations
