@@ -2,6 +2,7 @@ Stock Portfolio
 
 Aggregates all the stock investments.
 
+Provides the overview of the stock portfolio: total money invested, total profit and percentage, stock distribution.
 
 Stock Investment
 
