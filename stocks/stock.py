@@ -6,8 +6,41 @@ class StockEncoder(json.JSONEncoder):
 
     def default(self, obj):
         if isinstance(obj, StockOperation):
-            return obj.to_json
+            return self.encode_stock_operation(obj)
+        elif isinstance(obj, StockInvestment):
+            return self.encode_stock_investment(obj)
+        elif isinstance(obj, StockPortfolio):
+            return self.encode_stock_portfolio(obj)
+
         return json.JSONEncoder.default(self, obj)
+
+    @staticmethod
+    def encode_stock_operation(obj):
+        return {
+            'type': 'StockOperation',
+            'stock': obj.stock,
+            'day': obj.day,
+            'shares': obj.shares,
+            'price': obj.price,
+            'fees': obj.fees,
+            'symbol': obj.symbol,
+        }
+
+    @staticmethod
+    def encode_stock_investment(obj):
+        return {
+            'type': 'StockInvestment',
+            'stock': obj.stock,
+            'price': obj.price,
+            'operations': obj.operations,
+        }
+
+    @staticmethod
+    def encode_stock_portfolio(obj):
+        return {
+            'type': 'StockPortfolio',
+            'stocks': obj.stocks,
+        }
 
 
 class StockDecoder(json.JSONDecoder):
@@ -16,14 +49,18 @@ class StockDecoder(json.JSONDecoder):
         json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
 
     def object_hook(self, obj):
+        if 'type' not in obj:
+            return obj
         if obj['type'] == 'StockOperation':
             return self.parse_stock_operation(obj)
+        elif obj['type'] == 'StockInvestment':
+            return self.parse_stock_investment(obj)
+        elif obj['type'] == 'StockPortfolio':
+            return self.parse_stock_portfolio(obj)
         return obj
 
     @staticmethod
     def parse_stock_operation(obj):
-        if 'symbol' not in obj:
-            return obj
         if obj['symbol'] == 'B':
             return BuyStockOperation(obj['stock'], obj['day'], obj['shares'], obj['price'], obj['fees'])
         elif obj['symbol'] == 'S':
@@ -32,6 +69,14 @@ class StockDecoder(json.JSONDecoder):
             return DividendStockOperation(obj['stock'], obj['day'], obj['shares'], obj['price'])
         return obj
 
+    @staticmethod
+    def parse_stock_investment(obj):
+        return StockInvestment(obj['stock'], obj['price'], obj['operations'])
+
+    @staticmethod
+    def parse_stock_portfolio(obj):
+        return StockPortfolio(obj['stocks'])
+
 
 class StockComponent(ABC):
     """
@@ -39,6 +84,9 @@ class StockComponent(ABC):
     """
 
     def __init__(self):
+        """
+        Initializer
+        """
         pass
 
     @abstractmethod
@@ -139,9 +187,24 @@ class StockPortfolio(StockComponent):
     The StockPortfolio is the composite of the stocks
     """
 
-    def __init__(self):
+    def __init__(self, stocks=None):
+        """
+        Creates the mapping that will be used to hold StockInvestment based on the stock name. The stocks should be only
+        used when restoring data from json
+
+        :param stocks: the stocks portfolio
+        """
         super().__init__()
-        self._stocks = {}
+        self._stocks = stocks if stocks is not None else {}
+
+    @property
+    def stocks(self):
+        """
+        Return all the portfolio
+
+        :return: Return the portfolio
+        """
+        return self._stocks
 
     def add_stock(self, stock):
         """
@@ -207,7 +270,7 @@ class StockPortfolio(StockComponent):
 
         :return: The current cost value of the portfolio
         """
-        return sum([stock.cost_value for stock in self._stocks])
+        return sum([stock.cost_value for stock in self._stocks.values()])
 
     @property
     def market_value(self):
@@ -217,7 +280,7 @@ class StockPortfolio(StockComponent):
 
         :return: The current market value of the portfolio
         """
-        return sum([stock.market_value for stock in self._stocks])
+        return sum([stock.market_value for stock in self._stocks.values()])
 
     @property
     def fees(self):
@@ -226,7 +289,7 @@ class StockPortfolio(StockComponent):
 
         :return: The total amount of fees paid on the portfolio
         """
-        return sum([stock.fees for stock in self._stocks])
+        return sum([stock.fees for stock in self._stocks.values()])
 
     @property
     def dividends(self):
@@ -235,7 +298,7 @@ class StockPortfolio(StockComponent):
 
         :return: The total amount of dividends received on the portfolio
         """
-        return sum([stock.dividends for stock in self._stocks])
+        return sum([stock.dividends for stock in self._stocks.values()])
 
 
 class StockInvestment(StockComponent):
@@ -243,11 +306,46 @@ class StockInvestment(StockComponent):
     The StockInvestment is the leaf of the stocks
     """
 
-    def __init__(self, stock):
+    def __init__(self, stock, price=0, operations=None):
+        """
+        Initializes the name os the stock, the price, and the operations. The price and operations should only be used
+        when restoring data from json
+
+        :param stock: name of the stock
+        :param price: price of the stock, defaults to 0
+        :param operations: operations done related to the stock, defaults to empty
+        """
         super().__init__()
         self._stock = stock
-        self._price = None
-        self._operations = []
+        self._price = price
+        self._operations = operations if operations is not None else []
+
+    @property
+    def stock(self):
+        """
+        The name of the stock
+
+        :return: The name of the stock
+        """
+        return self._stock
+
+    @property
+    def price(self):
+        """
+        The current price of the stock
+
+        :return: The current price of the stock
+        """
+        return self._price
+
+    @property
+    def operations(self):
+        """
+        All the operations related to the stock
+
+        :return: All the operations related to the stock
+        """
+        return self._operations
 
     def set_price(self, stock, price):
         """
@@ -383,8 +481,20 @@ class StockInvestment(StockComponent):
 
 
 class StockOperation(ABC):
+    """
+    Base abstract class for stock operations
+    """
 
     def __init__(self, stock, day, shares, price, fees):
+        """
+        Initializes the stock operation
+
+        :param stock: name of the stock
+        :param day: day of the operation
+        :param shares: number of shares
+        :param price: price per share
+        :param fees: fees of the operation
+        """
         self._stock = stock
         self._day = day
         self._shares = shares
@@ -393,50 +503,133 @@ class StockOperation(ABC):
         self._symbol = None
 
     def __repr__(self):
-        return '{} {} {} {:.2f} {}'.format(self._symbol, self._stock, self._shares, self._price, self._day)
+        """
+        The string representation of the operation
+        Format is:
+         <symbol> <stock> <shares> <price> <day> <value>
+
+        :return: The string representation of the operation
+        """
+        return '{} {} {} {:.2f} {} {:.2f}'.format(self._symbol, self._stock, self._shares, self._price, self._day,
+                                                  self.value)
 
     @property
-    def to_json(self):
-        return {
-            'type': 'StockOperation',
-            'stock': self._stock,
-            'day': self._day,
-            'shares': self._shares,
-            'price': self._price,
-            'fees': self._fees,
-            'symbol': self._symbol,
-        }
+    def stock(self):
+        """
+        The name of the stock
+
+        :return: The name of the stock
+        """
+        return self._stock
 
     @property
-    def value(self):
-        return self._shares * self._price + self._fees
+    def day(self):
+        """
+        The day of the operation
+
+        :return: The day of the operation
+        """
+        return self._day
 
     @property
     def shares(self):
+        """
+        The number of shares of the operation
+
+        :return: The number of shares of the operation
+        """
         return self._shares
 
     @property
+    def price(self):
+        """
+        The price per share
+
+        :return: The price per share
+        """
+        return self._price
+
+    @property
     def fees(self):
+        """
+        The fees of the operation
+
+        :return: The fees of the operation
+        """
         return self._fees
+
+    @property
+    def symbol(self):
+        """
+        The operation symbol. It is overridden when inheriting
+
+        :return: The operation symbol
+        """
+        return self._symbol
+
+    @property
+    def value(self):
+        """
+        The total value of the operation. It is calculated multiplying the number of shares by the price and adding the
+        fees
+
+        :return: The total value of the operation
+        """
+        return self._shares * self._price + self._fees
 
 
 class BuyStockOperation(StockOperation):
+    """
+    Buy stock operation
+    """
 
     def __init__(self, stock, day, shares, price, fees):
+        """
+        Initialize the parent fields and define the buy symbol as B
+
+        :param stock: name of the stock
+        :param day: day of the operation
+        :param shares: number of shares
+        :param price: price per share
+        :param fees: fees of the operation
+        """
         super().__init__(stock, day, shares, price, fees)
         self._symbol = 'B'
 
 
 class SellStockOperation(StockOperation):
+    """
+    Sell stock operation
+    """
 
     def __init__(self, stock, day, shares, price, fees):
+        """
+        Initialize the parent fields and define the sell symbol as S
+
+        :param stock: name of the stock
+        :param day: day of the operation
+        :param shares: number of shares
+        :param price: price per share
+        :param fees: fees of the operation
+        """
         super().__init__(stock, day, shares, price, fees)
         self._symbol = 'S'
 
 
 class DividendStockOperation(StockOperation):
+    """
+    Dividend stock operation
+    """
 
     def __init__(self, stock, day, shares, price):
+        """
+        Initialize the parent fields and define the dividend symbol as D
+
+        :param stock: name of the stock
+        :param day: day of the operation
+        :param shares: number of shares
+        :param price: price per share
+        """
         super().__init__(stock, day, shares, price, 0)
         self._symbol = 'D'
 
@@ -453,6 +646,19 @@ if __name__ == '__main__':
     print(StockEncoder().encode(s))
     print(StockDecoder().decode(StockEncoder().encode(s)))
 
+    si = StockInvestment('BAWAG')
+    si.buy('BAWAG', '29.10.2020', 50, 31.34, 2.50)
+    si.set_price('BAWAG', 32.10)
+    print(si.stock)
+    print(si.price)
+    print(si.operations)
+    print(si)
+    print(StockEncoder().encode(si))
+    a = StockDecoder().decode(StockEncoder().encode(si))
+    print(a.stock)
+    print(a.price)
+    print(a.operations)
+
     stock_data = {
         'BAWAG': ('29.10.2020', 50, 31.34, 2.50, 32.10),
         'CA IMMO': ('29.10.2020', 60, 23.45, 2.50, 25.25),
@@ -465,8 +671,23 @@ if __name__ == '__main__':
         'VIENNA': ('29.10.2020', 160, 17.20, 2.50, 17.46)
     }
 
+    p = StockPortfolio()
+
     for st, data in stock_data.items():
-        investment = StockInvestment(st)
+        p.add_stock(st)
         d, sh, bp, f, cp = data
-        investment.buy(st, d, sh, bp, f)
-        print(investment)
+        p.buy(st, d, sh, bp, f)
+        p.set_price(st, cp)
+
+    print(p.cost_value)
+    print(p.market_value)
+    print(p.fees)
+    print(p.dividends)
+
+    print(StockEncoder().encode(p))
+    pa = StockDecoder().decode(StockEncoder().encode(p))
+
+    print(pa.cost_value)
+    print(pa.market_value)
+    print(pa.fees)
+    print(pa.dividends)
