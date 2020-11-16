@@ -684,7 +684,7 @@ if __name__ == '__main__':
     print(p.fees)
     print(p.dividends)
 
-    print(StockEncoder().encode(p))
+    print(json.dumps(p, cls=StockEncoder))
     pa = StockDecoder().decode(StockEncoder().encode(p))
 
     print(pa.cost_value)
