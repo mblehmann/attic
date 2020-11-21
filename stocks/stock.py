@@ -1,5 +1,6 @@
 import json
 from abc import ABC, abstractmethod
+from decimal import *
 
 
 class StockEncoder(json.JSONEncoder):
@@ -11,6 +12,8 @@ class StockEncoder(json.JSONEncoder):
             return self.encode_stock_investment(obj)
         elif isinstance(obj, StockPortfolio):
             return self.encode_stock_portfolio(obj)
+        elif isinstance(obj, Decimal):
+            return float(obj.quantize(Decimal('0.01')))
 
         return json.JSONEncoder.default(self, obj)
 
@@ -88,6 +91,16 @@ class StockComponent(ABC):
         Initializer
         """
         pass
+
+    @staticmethod
+    def money(value):
+        """
+        Converts the value to a money format, that is, to a float-precision of two
+
+        :param value: Value to be converted
+        :return: Value with a float-precision of two
+        """
+        return Decimal(value).quantize(Decimal('0.01'))
 
     @abstractmethod
     def set_price(self, stock, price):
@@ -181,6 +194,26 @@ class StockComponent(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def current_profit(self):
+        """
+        The current profit assuming all shares would be sold with the current price
+
+        :return: The current expected profit
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def current_profit_percentage(self):
+        """
+        The current profit percentage assuming all shares would be sold with the current price
+
+        :return: The current expected profit percentage
+        """
+        pass
+
 
 class StockPortfolio(StockComponent):
     """
@@ -210,10 +243,19 @@ class StockPortfolio(StockComponent):
         """
         Adds a new stock to the portfolio. Creates a new leaf to represent the stock
 
-        :param stock: The added stock
+        :param stock: The name of the stock
         :return: empty
         """
         self._stocks[stock] = StockInvestment(stock)
+
+    def get_stock(self, stock):
+        """
+        Get all the information about a stock.
+
+        :param stock: The name of the stock
+        :return: Stock queried
+        """
+        return self._stocks[stock]
 
     def set_price(self, stock, price):
         """
@@ -223,7 +265,7 @@ class StockPortfolio(StockComponent):
         :param price: current price of the stock
         :return: empty
         """
-        self._stocks[stock].set_price(stock, price)
+        self._stocks[stock].set_price(stock, Decimal(price))
 
     def buy(self, stock, day, shares, price, fees):
         """
@@ -236,7 +278,7 @@ class StockPortfolio(StockComponent):
         :param fees: fees paid on the operation
         :return: empty
         """
-        self._stocks[stock].buy(stock, day, shares, price, fees)
+        self._stocks[stock].buy(stock, day, shares, Decimal(price), Decimal(fees))
 
     def sell(self, stock, day, shares, price, fees):
         """
@@ -249,7 +291,7 @@ class StockPortfolio(StockComponent):
         :param fees: fees paid on the operation
         :return: empty
         """
-        self._stocks[stock].sell(stock, day, shares, price, fees)
+        self._stocks[stock].sell(stock, day, shares, Decimal(price), Decimal(fees))
 
     def gain_dividends(self, stock, day, shares, dividends):
         """
@@ -261,7 +303,7 @@ class StockPortfolio(StockComponent):
         :param dividends: dividends received per share
         :return: empty
         """
-        self._stocks[stock].gain_dividends(stock, day, shares, dividends)
+        self._stocks[stock].gain_dividends(stock, day, shares, Decimal(dividends))
 
     @property
     def cost_value(self):
@@ -300,13 +342,31 @@ class StockPortfolio(StockComponent):
         """
         return sum([stock.dividends for stock in self._stocks.values()])
 
+    @property
+    def current_profit(self):
+        """
+        The current profit assuming all shares would be sold with the current price
+
+        :return: The current expected profit
+        """
+        return sum([stock.current_profit for stock in self._stocks.values()])
+
+    @property
+    def current_profit_percentage(self):
+        """
+        The current profit percentage assuming all shares would be sold with the current price
+
+        :return: The current expected profit percentage
+        """
+        return self.current_profit / self.cost_value * 100
+
 
 class StockInvestment(StockComponent):
     """
     The StockInvestment is the leaf of the stocks
     """
 
-    def __init__(self, stock, price=0, operations=None):
+    def __init__(self, stock, price=Decimal(0), operations=None):
         """
         Initializes the name os the stock, the price, and the operations. The price and operations should only be used
         when restoring data from json
@@ -317,7 +377,7 @@ class StockInvestment(StockComponent):
         """
         super().__init__()
         self._stock = stock
-        self._price = price
+        self._price = Decimal(price)
         self._operations = operations if operations is not None else []
 
     @property
@@ -355,7 +415,7 @@ class StockInvestment(StockComponent):
         :param price: current price of the stock
         :return: empty
         """
-        self._price = price
+        self._price = Decimal(price)
 
     def buy(self, stock, day, shares, price, fees):
         """
@@ -368,7 +428,7 @@ class StockInvestment(StockComponent):
         :param fees: fees paid on the operation
         :return: empty
         """
-        self._operations.append(BuyStockOperation(stock, day, shares, price, fees))
+        self._operations.append(BuyStockOperation(stock, day, shares, Decimal(price), Decimal(fees)))
 
     def sell(self, stock, day, shares, price, fees):
         """
@@ -381,7 +441,7 @@ class StockInvestment(StockComponent):
         :param fees: fees paid on the operation
         :return: empty
         """
-        self._operations.append(SellStockOperation(stock, day, shares, price, fees))
+        self._operations.append(SellStockOperation(stock, day, shares, Decimal(price), Decimal(fees)))
 
     def gain_dividends(self, stock, day, shares, dividends):
         """
@@ -393,7 +453,7 @@ class StockInvestment(StockComponent):
         :param dividends: dividends received per share
         :return: empty
         """
-        self._operations.append(DividendStockOperation(stock, day, shares, dividends))
+        self._operations.append(DividendStockOperation(stock, day, shares, Decimal(dividends)))
 
     @property
     def cost_value(self):
@@ -430,6 +490,24 @@ class StockInvestment(StockComponent):
         :return: The total amount of dividends received on the stock
         """
         return sum([operation.value for operation in self.dividend_operations])
+
+    @property
+    def current_profit(self):
+        """
+        The current profit assuming all shares would be sold with the current price
+
+        :return: The current expected profit
+        """
+        return self.market_value - self.cost_value
+
+    @property
+    def current_profit_percentage(self):
+        """
+        The current profit percentage assuming all shares would be sold with the current price
+
+        :return: The current expected profit percentage
+        """
+        return self.current_profit / self.cost_value * 100
 
     @property
     def shares(self):
@@ -498,8 +576,8 @@ class StockOperation(ABC):
         self._stock = stock
         self._day = day
         self._shares = shares
-        self._price = price
-        self._fees = fees
+        self._price = Decimal(price)
+        self._fees = Decimal(fees)
         self._symbol = None
 
     def __repr__(self):
@@ -510,8 +588,8 @@ class StockOperation(ABC):
 
         :return: The string representation of the operation
         """
-        return '{} {} {} {:.2f} {} {:.2f}'.format(self._symbol, self._stock, self._shares, self._price, self._day,
-                                                  self.value)
+        return '{} {} {} {:,.2f} {} {:,.2f}'.format(self._symbol, self._stock, self._shares, self._price, self._day,
+                                                    self.value)
 
     @property
     def stock(self):
@@ -575,7 +653,7 @@ class StockOperation(ABC):
 
         :return: The total value of the operation
         """
-        return self._shares * self._price + self._fees
+        return self._price.fma(self._shares, self._fees)
 
 
 class BuyStockOperation(StockOperation):
@@ -636,19 +714,20 @@ class DividendStockOperation(StockOperation):
 
 if __name__ == '__main__':
 
-    b = BuyStockOperation('Erste Group', '20.04.1988', 200, 17.20, 2.50)
+    b = BuyStockOperation('EBS.VI', '20.04.1988', 200, 17.20, 2.50)
     print(b)
     print(StockEncoder().encode(b))
     print(StockDecoder().decode(StockEncoder().encode(b)))
 
-    s = SellStockOperation('Erste Group', '20.04.1988', 200, 17.20, 2.50)
+    s = SellStockOperation('EBS.VI', '20.04.1988', 200, 17.20, 2.50)
     print(s)
     print(StockEncoder().encode(s))
     print(StockDecoder().decode(StockEncoder().encode(s)))
+    ss = StockDecoder().decode(StockEncoder().encode(s))
 
-    si = StockInvestment('BAWAG')
-    si.buy('BAWAG', '29.10.2020', 50, 31.34, 2.50)
-    si.set_price('BAWAG', 32.10)
+    si = StockInvestment('BG.VI')
+    si.buy('BG.VI', '29.10.2020', 50, 31.34, 2.50)
+    si.set_price('BG.VI', 32.10)
     print(si.stock)
     print(si.price)
     print(si.operations)
@@ -660,15 +739,15 @@ if __name__ == '__main__':
     print(a.operations)
 
     stock_data = {
-        'BAWAG': ('29.10.2020', 50, 31.34, 2.50, 32.10),
-        'CA IMMO': ('29.10.2020', 60, 23.45, 2.50, 25.25),
-        'ERSTE GROUP': ('29.10.2020', 200, 17.20, 2.50, 17.98),
-        'LENZING': ('29.10.2020', 20, 59.70, 2.50, 65.20),
-        'OMV': ('29.10.2020', 150, 19.85, 2.50, 21.02),
-        'RAIFFEISEN': ('29.10.2020', 230, 12.02, 2.50, 12.82),
-        'S IMMO': ('29.10.2020', 220, 12.86, 2.50, 13.68),
-        'UNIQA': ('29.10.2020', 600, 4.73, 2.50, 5.02),
-        'VIENNA': ('29.10.2020', 160, 17.20, 2.50, 17.46)
+        'BG.VI': ('29.10.2020', 50, 31.34, 2.50, 32.10),
+        'CAI.VI': ('29.10.2020', 60, 23.45, 2.50, 25.25),
+        'EBS.VI': ('29.10.2020', 200, 17.20, 2.50, 17.98),
+        'LNG.VI': ('29.10.2020', 20, 59.70, 2.50, 65.20),
+        'OMV.VI': ('29.10.2020', 150, 19.85, 2.50, 21.02),
+        'RBI.VI': ('29.10.2020', 230, 12.02, 2.50, 12.82),
+        'SPI.VI': ('29.10.2020', 220, 12.86, 2.50, 13.68),
+        'UQA.VI': ('29.10.2020', 600, 4.73, 2.50, 5.02),
+        'VIG.VI': ('29.10.2020', 160, 17.20, 2.50, 17.46)
     }
 
     p = StockPortfolio()
