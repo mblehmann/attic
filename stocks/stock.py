@@ -27,6 +27,7 @@ class StockEncoder(json.JSONEncoder):
             'price': obj.price,
             'fees': obj.fees,
             'symbol': obj.symbol,
+            'value': obj.value,
         }
 
     @staticmethod
@@ -36,6 +37,14 @@ class StockEncoder(json.JSONEncoder):
             'stock': obj.stock,
             'price': obj.price,
             'operations': obj.operations,
+            'cost_value': obj.cost_value,
+            'market_value': obj.market_value,
+            'fees': obj.fees,
+            'dividends': obj.dividends,
+            'current_profit': obj.current_profit,
+            'current_profit_percentage': obj.current_profit_percentage,
+            'shares': obj.shares,
+            'average_buy_price': obj.average_buy_price,
         }
 
     @staticmethod
@@ -43,6 +52,12 @@ class StockEncoder(json.JSONEncoder):
         return {
             'type': 'StockPortfolio',
             'stocks': obj.stocks,
+            'cost_value': obj.cost_value,
+            'market_value': obj.market_value,
+            'fees': obj.fees,
+            'dividends': obj.dividends,
+            'current_profit': obj.current_profit,
+            'current_profit_percentage': obj.current_profit_percentage,
         }
 
 
@@ -358,7 +373,10 @@ class StockPortfolio(StockComponent):
 
         :return: The current expected profit percentage
         """
-        return self.current_profit / self.cost_value * 100
+        if self.cost_value:
+            return self.current_profit / self.cost_value * 100
+        else:
+            return 0
 
 
 class StockInvestment(StockComponent):
@@ -429,6 +447,8 @@ class StockInvestment(StockComponent):
         :return: empty
         """
         self._operations.append(BuyStockOperation(stock, day, shares, Decimal(price), Decimal(fees)))
+        if not self._price:
+            self.set_price(stock, price)
 
     def sell(self, stock, day, shares, price, fees):
         """
@@ -507,7 +527,10 @@ class StockInvestment(StockComponent):
 
         :return: The current expected profit percentage
         """
-        return self.current_profit / self.cost_value * 100
+        if self.cost_value:
+            return self.current_profit / self.cost_value * 100
+        else:
+            return 0
 
     @property
     def shares(self):
@@ -527,8 +550,11 @@ class StockInvestment(StockComponent):
 
         :return: The average buy price of the shares
         """
-        return sum([operation.value for operation in self.buy_operations]) / sum(
-            [operation.shares for operation in self.buy_operations])
+        buy_shares = sum([operation.shares for operation in self.buy_operations])
+        if buy_shares:
+            return sum([operation.value for operation in self.buy_operations]) / buy_shares
+        else:
+            return Decimal(0)
 
     @property
     def buy_operations(self):
@@ -579,17 +605,6 @@ class StockOperation(ABC):
         self._price = Decimal(price)
         self._fees = Decimal(fees)
         self._symbol = None
-
-    def __repr__(self):
-        """
-        The string representation of the operation
-        Format is:
-         <symbol> <stock> <shares> <price> <day> <value>
-
-        :return: The string representation of the operation
-        """
-        return '{} {} {} {:,.2f} {} {:,.2f}'.format(self._symbol, self._stock, self._shares, self._price, self._day,
-                                                    self.value)
 
     @property
     def stock(self):
