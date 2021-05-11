@@ -1,787 +1,283 @@
-import json
-from abc import ABC, abstractmethod
-from decimal import *
+from pubsub import pub
+from yfinance import Ticker
+
+from stocks.transaction import BuyTransaction, SellTransaction, DividendTransaction, TaxTransaction
 
 
-class StockEncoder(json.JSONEncoder):
+class Results:
 
-    def default(self, obj):
-        if isinstance(obj, StockOperation):
-            return self.encode_stock_operation(obj)
-        elif isinstance(obj, StockInvestment):
-            return self.encode_stock_investment(obj)
-        elif isinstance(obj, StockPortfolio):
-            return self.encode_stock_portfolio(obj)
-        elif isinstance(obj, Decimal):
-            return float(obj.quantize(Decimal('0.01')))
+    def __init__(self, event, **kwargs):
+        self._event = event
+        self._gains = kwargs.get('gains', 0)
+        self._dividends = kwargs.get('dividends', 0)
+        self._fees = kwargs.get('fees', 0)
+        self._taxes = kwargs.get('taxes', 0)
 
-        return json.JSONEncoder.default(self, obj)
+    def set_subscriptions(self, symbol):
+        pub.subscribe(self.provide_data, 'select.{}'.format(symbol))
 
-    @staticmethod
-    def encode_stock_operation(obj):
+    def provide_data(self, symbol=None):
+        pub.sendMessage('stock.{}'.format(self._event), data=self.data)
+
+    @property
+    def event(self):
+        return self._event
+
+    @property
+    def data(self):
         return {
-            'type': 'StockOperation',
-            'stock': obj.stock,
-            'day': obj.day,
-            'shares': obj.shares,
-            'price': obj.price,
-            'fees': obj.fees,
-            'symbol': obj.symbol,
-            'value': obj.value,
+            'profit': self.profit,
+            'gains': self._gains,
+            'dividends': self._dividends,
+            'fees': self._fees,
+            'taxes': self._taxes
         }
 
-    @staticmethod
-    def encode_stock_investment(obj):
-        return {
-            'type': 'StockInvestment',
-            'stock': obj.stock,
-            'price': obj.price,
-            'operations': obj.operations,
-            'cost_value': obj.cost_value,
-            'market_value': obj.market_value,
-            'fees': obj.fees,
-            'dividends': obj.dividends,
-            'current_profit': obj.current_profit,
-            'current_profit_percentage': obj.current_profit_percentage,
-            'shares': obj.shares,
-            'average_buy_price': obj.average_buy_price,
-        }
-
-    @staticmethod
-    def encode_stock_portfolio(obj):
-        return {
-            'type': 'StockPortfolio',
-            'stocks': obj.stocks,
-            'cost_value': obj.cost_value,
-            'market_value': obj.market_value,
-            'fees': obj.fees,
-            'dividends': obj.dividends,
-            'current_profit': obj.current_profit,
-            'current_profit_percentage': obj.current_profit_percentage,
-        }
-
-
-class StockDecoder(json.JSONDecoder):
-
-    def __init__(self, *args, **kwargs):
-        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
-
-    def object_hook(self, obj):
-        if 'type' not in obj:
-            return obj
-        if obj['type'] == 'StockOperation':
-            return self.parse_stock_operation(obj)
-        elif obj['type'] == 'StockInvestment':
-            return self.parse_stock_investment(obj)
-        elif obj['type'] == 'StockPortfolio':
-            return self.parse_stock_portfolio(obj)
-        return obj
-
-    @staticmethod
-    def parse_stock_operation(obj):
-        if obj['symbol'] == 'B':
-            return BuyStockOperation(obj['stock'], obj['day'], obj['shares'], obj['price'], obj['fees'])
-        elif obj['symbol'] == 'S':
-            return SellStockOperation(obj['stock'], obj['day'], obj['shares'], obj['price'], obj['fees'])
-        elif obj['symbol'] == 'D':
-            return DividendStockOperation(obj['stock'], obj['day'], obj['shares'], obj['price'])
-        return obj
-
-    @staticmethod
-    def parse_stock_investment(obj):
-        return StockInvestment(obj['stock'], obj['price'], obj['operations'])
-
-    @staticmethod
-    def parse_stock_portfolio(obj):
-        return StockPortfolio(obj['stocks'])
-
-
-class StockComponent(ABC):
-    """
-    The StockComponent is an interface for the composite and leaf of the stocks
-    """
-
-    def __init__(self):
-        """
-        Initializer
-        """
-        pass
-
-    @staticmethod
-    def money(value):
-        """
-        Converts the value to a money format, that is, to a float-precision of two
-
-        :param value: Value to be converted
-        :return: Value with a float-precision of two
-        """
-        return Decimal(value).quantize(Decimal('0.01'))
-
-    @abstractmethod
-    def set_price(self, stock, price):
-        """
-        Sets the price of a stock
-
-        :param stock: name of the stock
-        :param price: current price of the stock
-        :return: empty
-        """
-        pass
-
-    @abstractmethod
-    def buy(self, stock, day, shares, price, fees):
-        """
-        Buy shares of a stock
-
-        :param stock: name of the stock
-        :param day: day of the buy operation
-        :param shares: number of shares bought
-        :param price: price paid per share
-        :param fees: fees paid on the operation
-        :return: empty
-        """
-        pass
-
-    @abstractmethod
-    def sell(self, stock, day, shares, price, fees):
-        """
-        Sell shares of a stock
-
-        :param stock: name of the stock
-        :param day: day of the buy operation
-        :param shares: number of shares bought
-        :param price: price paid per share
-        :param fees: fees paid on the operation
-        :return: empty
-        """
-        pass
-
-    @abstractmethod
-    def gain_dividends(self, stock, day, shares, dividends):
-        """
-        Gain dividends of a stock
-
-        :param stock: name of the stock
-        :param day: day that the dividends were received
-        :param shares: number of shares that received dividend
-        :param dividends: dividends received per share
-        :return: empty
-        """
-        pass
-
     @property
-    @abstractmethod
-    def cost_value(self):
-        """
-        The current cost value of the stock
-
-        :return: The current cost value of the stock
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def market_value(self):
-        """
-        The current market value of the stock based on the current price set
-
-        :return: The current market value of the stock
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def fees(self):
-        """
-        The total amount of fees paid on the stock
-
-        :return: The total amount of fees paid on the stock
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def dividends(self):
-        """
-        The total amount of dividends received on the stock
-
-        :return: The total amount of dividends received on the stock
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def current_profit(self):
-        """
-        The current profit assuming all shares would be sold with the current price
-
-        :return: The current expected profit
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def current_profit_percentage(self):
-        """
-        The current profit percentage assuming all shares would be sold with the current price
-
-        :return: The current expected profit percentage
-        """
-        pass
-
-
-class StockPortfolio(StockComponent):
-    """
-    The StockPortfolio is the composite of the stocks
-    """
-
-    def __init__(self, stocks=None):
-        """
-        Creates the mapping that will be used to hold StockInvestment based on the stock name. The stocks should be only
-        used when restoring data from json
-
-        :param stocks: the stocks portfolio
-        """
-        super().__init__()
-        self._stocks = stocks if stocks is not None else {}
-
-    @property
-    def stocks(self):
-        """
-        Return all the portfolio
-
-        :return: Return the portfolio
-        """
-        return self._stocks
-
-    def add_stock(self, stock):
-        """
-        Adds a new stock to the portfolio. Creates a new leaf to represent the stock
-
-        :param stock: The name of the stock
-        :return: empty
-        """
-        self._stocks[stock] = StockInvestment(stock)
-
-    def get_stock(self, stock):
-        """
-        Get all the information about a stock.
-
-        :param stock: The name of the stock
-        :return: Stock queried
-        """
-        return self._stocks[stock]
-
-    def set_price(self, stock, price):
-        """
-        Sets the price of a stock. Forwards the call to the stock leaf
-
-        :param stock: name of the stock
-        :param price: current price of the stock
-        :return: empty
-        """
-        self._stocks[stock].set_price(stock, Decimal(price))
-
-    def buy(self, stock, day, shares, price, fees):
-        """
-        Buy shares of a stock. Forwards the call to the stock leaf
-
-        :param stock: name of the stock
-        :param day: day of the buy operation
-        :param shares: number of shares bought
-        :param price: price paid per share
-        :param fees: fees paid on the operation
-        :return: empty
-        """
-        self._stocks[stock].buy(stock, day, shares, Decimal(price), Decimal(fees))
-
-    def sell(self, stock, day, shares, price, fees):
-        """
-        Sell shares of a stock. Forwards the call to the stock leaf
-
-        :param stock: name of the stock
-        :param day: day of the buy operation
-        :param shares: number of shares bought
-        :param price: price paid per share
-        :param fees: fees paid on the operation
-        :return: empty
-        """
-        self._stocks[stock].sell(stock, day, shares, Decimal(price), Decimal(fees))
-
-    def gain_dividends(self, stock, day, shares, dividends):
-        """
-        Gain dividends of a stock. Forwards the call to the stock leaf
-
-        :param stock: name of the stock
-        :param day: day that the dividends were received
-        :param shares: number of shares that received dividend
-        :param dividends: dividends received per share
-        :return: empty
-        """
-        self._stocks[stock].gain_dividends(stock, day, shares, Decimal(dividends))
-
-    @property
-    def cost_value(self):
-        """
-        The current cost value of the portfolio. Aggregates the cost value of all stocks
-
-        :return: The current cost value of the portfolio
-        """
-        return sum([stock.cost_value for stock in self._stocks.values()])
-
-    @property
-    def market_value(self):
-        """
-        The current market value of the portfolio based on the current price set for each stock. Aggregates the market
-        value of all stocks
-
-        :return: The current market value of the portfolio
-        """
-        return sum([stock.market_value for stock in self._stocks.values()])
-
-    @property
-    def fees(self):
-        """
-        The total amount of fees paid on the portfolio. Aggregates the fees paid of all stocks
-
-        :return: The total amount of fees paid on the portfolio
-        """
-        return sum([stock.fees for stock in self._stocks.values()])
-
-    @property
-    def dividends(self):
-        """
-        The total amount of dividends received on the portfolio. Aggregates the dividends received of all stocks
-
-        :return: The total amount of dividends received on the portfolio
-        """
-        return sum([stock.dividends for stock in self._stocks.values()])
-
-    @property
-    def current_profit(self):
-        """
-        The current profit assuming all shares would be sold with the current price
-
-        :return: The current expected profit
-        """
-        return sum([stock.current_profit for stock in self._stocks.values()])
-
-    @property
-    def current_profit_percentage(self):
-        """
-        The current profit percentage assuming all shares would be sold with the current price
-
-        :return: The current expected profit percentage
-        """
-        if self.cost_value:
-            return self.current_profit / self.cost_value * 100
-        else:
-            return 0
-
-
-class StockInvestment(StockComponent):
-    """
-    The StockInvestment is the leaf of the stocks
-    """
-
-    def __init__(self, stock, price=Decimal(0), operations=None):
-        """
-        Initializes the name os the stock, the price, and the operations. The price and operations should only be used
-        when restoring data from json
-
-        :param stock: name of the stock
-        :param price: price of the stock, defaults to 0
-        :param operations: operations done related to the stock, defaults to empty
-        """
-        super().__init__()
-        self._stock = stock
-        self._price = Decimal(price)
-        self._operations = operations if operations is not None else []
-
-    @property
-    def stock(self):
-        """
-        The name of the stock
-
-        :return: The name of the stock
-        """
-        return self._stock
-
-    @property
-    def price(self):
-        """
-        The current price of the stock
-
-        :return: The current price of the stock
-        """
-        return self._price
-
-    @property
-    def operations(self):
-        """
-        All the operations related to the stock
-
-        :return: All the operations related to the stock
-        """
-        return self._operations
-
-    def set_price(self, stock, price):
-        """
-        Sets the price of the stock
-
-        :param stock: name of the stock
-        :param price: current price of the stock
-        :return: empty
-        """
-        self._price = Decimal(price)
-
-    def buy(self, stock, day, shares, price, fees):
-        """
-        Buy shares of the stock
-
-        :param stock: name of the stock
-        :param day: day of the buy operation
-        :param shares: number of shares bought
-        :param price: price paid per share
-        :param fees: fees paid on the operation
-        :return: empty
-        """
-        self._operations.append(BuyStockOperation(stock, day, shares, Decimal(price), Decimal(fees)))
-        if not self._price:
-            self.set_price(stock, price)
-
-    def sell(self, stock, day, shares, price, fees):
-        """
-        Sell shares of the stock
-
-        :param stock: name of the stock
-        :param day: day of the buy operation
-        :param shares: number of shares bought
-        :param price: price paid per share
-        :param fees: fees paid on the operation
-        :return: empty
-        """
-        self._operations.append(SellStockOperation(stock, day, shares, Decimal(price), Decimal(fees)))
-
-    def gain_dividends(self, stock, day, shares, dividends):
-        """
-        Gain dividends of the stock
-
-        :param stock: name of the stock
-        :param day: day that the dividends were received
-        :param shares: number of shares that received dividend
-        :param dividends: dividends received per share
-        :return: empty
-        """
-        self._operations.append(DividendStockOperation(stock, day, shares, Decimal(dividends)))
-
-    @property
-    def cost_value(self):
-        """
-        The current cost value of the stock. The cost value is defined by the current money invested on the stock
-
-        :return: The current cost value of the stock
-        """
-        return self.shares * self.average_buy_price
-
-    @property
-    def market_value(self):
-        """
-        The current market value of the stock based on the current price of the stock
-
-        :return: The current market value of the stock
-        """
-        return self.shares * self._price
-
-    @property
-    def fees(self):
-        """
-        The total amount of fees paid on the stock. Aggregates the fees of all operations
-
-        :return: The total amount of fees paid on the stock
-        """
-        return sum([operation.fees for operation in self._operations])
-
-    @property
-    def dividends(self):
-        """
-        The total amount of dividends received on the stock
-
-        :return: The total amount of dividends received on the stock
-        """
-        return sum([operation.value for operation in self.dividend_operations])
-
-    @property
-    def current_profit(self):
-        """
-        The current profit assuming all shares would be sold with the current price
-
-        :return: The current expected profit
-        """
-        return self.market_value - self.cost_value
-
-    @property
-    def current_profit_percentage(self):
-        """
-        The current profit percentage assuming all shares would be sold with the current price
-
-        :return: The current expected profit percentage
-        """
-        if self.cost_value:
-            return self.current_profit / self.cost_value * 100
-        else:
-            return 0
+    def profit(self):
+        return self._gains + self._dividends - (self._fees + self._taxes)
+
+    def reset(self):
+        self._gains = 0
+        self._dividends = 0
+        self._fees = 0
+        self._taxes = 0
+
+    def add_result(self, gain=0.0, dividend=0.0, fee=0.0, tax=0.0):
+        self._gains += gain
+        self._dividends += dividend
+        self._fees += fee
+        self._taxes += tax
+        self.provide_data()
+
+
+class Wallet:
+
+    def __init__(self, **kwargs):
+        self._shares = kwargs.get('shares', 0)
+        self._buy_price = kwargs.get('buy_price', 0)
+        self._results = kwargs.get('results', Results('results'))
+        self._transactions = kwargs.get('transactions', {})
+        self._projection = Results('projection')
+        self._current_price = None
+        self._last_dividend = None
+
+    def set_subscriptions(self, symbol):
+        pub.subscribe(self.provide_data, 'select.{}'.format(symbol))
+        pub.subscribe(self.buy, 'buy.{}'.format(symbol))
+        pub.subscribe(self.sell, 'sell.{}'.format(symbol))
+        pub.subscribe(self.dividend, 'dividend.{}'.format(symbol))
+        pub.subscribe(self.tax, 'tax.{}'.format(symbol))
+        pub.subscribe(self.remove_transaction, 'remove.{}'.format(symbol))
+
+        self._results.set_subscriptions(symbol)
+        self._projection.set_subscriptions(symbol)
+
+    def set_projection_data(self, price, dividend):
+        self._current_price = price
+        self._last_dividend = dividend
+        self.update_projection(self.appreciation, self._last_dividend)
 
     @property
     def shares(self):
-        """
-        The current number of shares of the stock. Subtracts the number of shares sold from the ones bought
-
-        :return: The current number of shares of the stock
-        """
-        return sum([operation.shares for operation in self.buy_operations]) - sum(
-            [operation.shares for operation in self.sell_operations])
-
-    @property
-    def average_buy_price(self):
-        """
-        The average buy price of the shares. Divides the total amount of cost from the buy operations by the total
-        amount of shares bought
-
-        :return: The average buy price of the shares
-        """
-        buy_shares = sum([operation.shares for operation in self.buy_operations])
-        if buy_shares:
-            return sum([operation.value for operation in self.buy_operations]) / buy_shares
-        else:
-            return Decimal(0)
-
-    @property
-    def buy_operations(self):
-        """
-        All the buy operations
-
-        :return: All the buy operations
-        """
-        return [operation for operation in self._operations if isinstance(operation, BuyStockOperation)]
-
-    @property
-    def sell_operations(self):
-        """
-        All the sell operations
-
-        :return: All the sell operations
-        """
-        return [operation for operation in self._operations if isinstance(operation, SellStockOperation)]
-
-    @property
-    def dividend_operations(self):
-        """
-        All the dividend operations
-
-        :return: All the dividend operations
-        """
-        return [operation for operation in self._operations if isinstance(operation, DividendStockOperation)]
-
-
-class StockOperation(ABC):
-    """
-    Base abstract class for stock operations
-    """
-
-    def __init__(self, stock, day, shares, price, fees):
-        """
-        Initializes the stock operation
-
-        :param stock: name of the stock
-        :param day: day of the operation
-        :param shares: number of shares
-        :param price: price per share
-        :param fees: fees of the operation
-        """
-        self._stock = stock
-        self._day = day
-        self._shares = shares
-        self._price = Decimal(price)
-        self._fees = Decimal(fees)
-        self._symbol = None
-
-    @property
-    def stock(self):
-        """
-        The name of the stock
-
-        :return: The name of the stock
-        """
-        return self._stock
-
-    @property
-    def day(self):
-        """
-        The day of the operation
-
-        :return: The day of the operation
-        """
-        return self._day
-
-    @property
-    def shares(self):
-        """
-        The number of shares of the operation
-
-        :return: The number of shares of the operation
-        """
         return self._shares
 
     @property
-    def price(self):
-        """
-        The price per share
-
-        :return: The price per share
-        """
-        return self._price
+    def buy_price(self):
+        return self._buy_price
 
     @property
-    def fees(self):
-        """
-        The fees of the operation
+    def results(self):
+        return self._results
 
-        :return: The fees of the operation
-        """
-        return self._fees
+    @property
+    def projection(self):
+        return self._projection
+
+    @property
+    def transactions(self):
+        return self._transactions
+
+    @property
+    def position(self):
+        return {
+            'shares': self._shares,
+            'avgBuyPrice': self._buy_price,
+            'invested': self.invested,
+            'marketValue': self.market_value,
+            'growth': self.growth
+        }
+
+    @property
+    def transaction_data(self):
+        return {t.id: t.data for t in self._transactions.values()}
+
+    @property
+    def invested(self):
+        return self._shares * self._buy_price
+
+    @property
+    def market_value(self):
+        return self._shares * self._current_price
+
+    @property
+    def appreciation(self):
+        return self.market_value - self.invested
+
+    @property
+    def growth(self):
+        return self.appreciation / self.invested * 100 if self.invested > 0 else 0
+
+    def execute_shares(self, amount, value=0):
+        invested = self.invested
+        self._shares += amount
+        if amount > 0:
+            self._buy_price = (invested + value) / self._shares
+        self.update_projection(self.appreciation, self._last_dividend)
+
+    def undo_shares(self, amount, value=0):
+        invested = self.invested
+        self._shares += amount
+        if amount < 0:
+            self._buy_price = (invested - value) / self._shares if self._shares > 0 else 0
+        self.update_projection(self.appreciation, self._last_dividend)
+
+    def add_transaction(self, transaction):
+        self._transactions[transaction.id] = transaction
+        self.provide_data()
+
+    def remove_transaction(self, ids):
+        for tid in ids:
+            transaction = self._transactions.pop(tid)
+            if isinstance(transaction, BuyTransaction):
+                self.undo_buy(transaction)
+            elif isinstance(transaction, SellTransaction):
+                self.undo_sell(transaction)
+            elif isinstance(transaction, DividendTransaction):
+                self.undo_dividend(transaction)
+            elif isinstance(transaction, TaxTransaction):
+                self.undo_tax(transaction)
+        self.provide_data()
+
+    def update_projection(self, appreciation, dividend):
+        self._projection.reset()
+        projected_tax = appreciation * 0.275
+        projected_dividend = self._shares * dividend
+        projected_fee = 4.95 if self._shares else 0
+        self._projection.add_result(gain=appreciation, dividend=projected_dividend,
+                                    fee=projected_fee, tax=projected_tax)
+
+    def provide_data(self, symbol=None):
+        pub.sendMessage('stock.position', data=self.position)
+        pub.sendMessage('stock.transactions', data=self.transaction_data)
+
+    def buy(self, stock, day, amount, price, fee):
+        t = BuyTransaction(day, amount, price, fee)
+        self.execute_shares(t.amount, t.value)
+        self._results.add_result(fee=t.fee)
+        self.add_transaction(t)
+
+    def sell(self, stock, day, amount, price, fee, tax):
+        if amount > self._shares:
+            pub.sendMessage('error',
+                            message='Cannot sell more shares than owned ({} > {})'.format(amount, self._shares))
+        else:
+            t = SellTransaction(day, amount, price, fee, tax, self._buy_price)
+            self.execute_shares(-t.amount)
+            self._results.add_result(gain=t.gain, fee=t.fee, tax=t.tax)
+            self.add_transaction(t)
+
+    def dividend(self, stock, day, dividend, tax):
+        t = DividendTransaction(day, dividend, tax)
+        self._results.add_result(dividend=t.dividend, tax=t.tax)
+        self.add_transaction(t)
+
+    def tax(self, stock, day, tax):
+        t = TaxTransaction(day, tax)
+        self._results.add_result(tax=t.tax)
+        self.add_transaction(t)
+
+    def undo_buy(self, t):
+        self.undo_shares(-t.amount, t.value)
+        self._results.add_result(fee=-t.fee)
+
+    def undo_sell(self, t):
+        self.undo_shares(t.amount)
+        self._results.add_result(gain=-t.gain, fee=-t.fee, tax=-t.tax)
+
+    def undo_dividend(self, t):
+        self._results.add_result(dividend=-t.dividend, tax=-t.tax)
+
+    def undo_tax(self, t):
+        self._results.add_result(tax=-t.tax)
+
+
+class Stock:
+
+    def __init__(self, symbol, **kwargs):
+        stock, market = symbol.split('.')
+        self._wallet = kwargs.get('wallet', Wallet())
+        self._ticker = Ticker(symbol)
+        self._wallet.set_projection_data(self.current_price, self.last_dividend)
+
+        pub.subscribe(self.select_stock, 'select.{}'.format(stock))
+        self._wallet.set_subscriptions(stock)
+
+    @property
+    def wallet(self):
+        return self._wallet
 
     @property
     def symbol(self):
-        """
-        The operation symbol. It is overridden when inheriting
-
-        :return: The operation symbol
-        """
-        return self._symbol
+        return self.info['symbol']
 
     @property
-    def value(self):
-        """
-        The total value of the operation. It is calculated multiplying the number of shares by the price and adding the
-        fees
+    def current_price(self):
+        return self.info['regularMarketPrice']
 
-        :return: The total value of the operation
-        """
-        return self._price.fma(self._shares, self._fees)
+    @property
+    def last_dividend(self):
+        return self.info['trailingAnnualDividendRate']
 
+    @property
+    def info(self):
+        return self._ticker.info
 
-class BuyStockOperation(StockOperation):
-    """
-    Buy stock operation
-    """
-
-    def __init__(self, stock, day, shares, price, fees):
-        """
-        Initialize the parent fields and define the buy symbol as B
-
-        :param stock: name of the stock
-        :param day: day of the operation
-        :param shares: number of shares
-        :param price: price per share
-        :param fees: fees of the operation
-        """
-        super().__init__(stock, day, shares, price, fees)
-        self._symbol = 'B'
+    def select_stock(self, symbol):
+        pub.sendMessage('stock.overview', data=self.info)
 
 
-class SellStockOperation(StockOperation):
-    """
-    Sell stock operation
-    """
+class Portfolio:
 
-    def __init__(self, stock, day, shares, price, fees):
-        """
-        Initialize the parent fields and define the sell symbol as S
+    def __init__(self, **kwargs):
+        self._stocks = kwargs.get('stocks', {})
 
-        :param stock: name of the stock
-        :param day: day of the operation
-        :param shares: number of shares
-        :param price: price per share
-        :param fees: fees of the operation
-        """
-        super().__init__(stock, day, shares, price, fees)
-        self._symbol = 'S'
+        pub.subscribe(self.add_stock, 'portfolio.add')
+        pub.subscribe(self.remove_stock, 'portfolio.remove')
+        pub.subscribe(self.clear_select, 'select.clear')
 
+    @property
+    def data(self):
+        return self._stocks
 
-class DividendStockOperation(StockOperation):
-    """
-    Dividend stock operation
-    """
+    @property
+    def stocks(self):
+        return sorted(self._stocks.keys())
 
-    def __init__(self, stock, day, shares, price):
-        """
-        Initialize the parent fields and define the dividend symbol as D
+    def add_stock(self, symbol):
+        self._stocks[symbol] = Stock('{}.VI'.format(symbol))
+        pub.sendMessage('portfolio.update', stocks=self.stocks)
 
-        :param stock: name of the stock
-        :param day: day of the operation
-        :param shares: number of shares
-        :param price: price per share
-        """
-        super().__init__(stock, day, shares, price, 0)
-        self._symbol = 'D'
+    def remove_stock(self, symbol):
+        try:
+            self._stocks.pop(symbol)
+            pub.sendMessage('portfolio.update', stocks=self.stocks)
+        except KeyError:
+            pass
 
-
-if __name__ == '__main__':
-
-    b = BuyStockOperation('EBS.VI', '20.04.1988', 200, 17.20, 2.50)
-    print(b)
-    print(StockEncoder().encode(b))
-    print(StockDecoder().decode(StockEncoder().encode(b)))
-
-    s = SellStockOperation('EBS.VI', '20.04.1988', 200, 17.20, 2.50)
-    print(s)
-    print(StockEncoder().encode(s))
-    print(StockDecoder().decode(StockEncoder().encode(s)))
-    ss = StockDecoder().decode(StockEncoder().encode(s))
-
-    si = StockInvestment('BG.VI')
-    si.buy('BG.VI', '29.10.2020', 50, 31.34, 2.50)
-    si.set_price('BG.VI', 32.10)
-    print(si.stock)
-    print(si.price)
-    print(si.operations)
-    print(si)
-    print(StockEncoder().encode(si))
-    a = StockDecoder().decode(StockEncoder().encode(si))
-    print(a.stock)
-    print(a.price)
-    print(a.operations)
-
-    stock_data = {
-        'BG.VI': ('29.10.2020', 50, 31.34, 2.50, 32.10),
-        'CAI.VI': ('29.10.2020', 60, 23.45, 2.50, 25.25),
-        'EBS.VI': ('29.10.2020', 200, 17.20, 2.50, 17.98),
-        'LNG.VI': ('29.10.2020', 20, 59.70, 2.50, 65.20),
-        'OMV.VI': ('29.10.2020', 150, 19.85, 2.50, 21.02),
-        'RBI.VI': ('29.10.2020', 230, 12.02, 2.50, 12.82),
-        'SPI.VI': ('29.10.2020', 220, 12.86, 2.50, 13.68),
-        'UQA.VI': ('29.10.2020', 600, 4.73, 2.50, 5.02),
-        'VIG.VI': ('29.10.2020', 160, 17.20, 2.50, 17.46)
-    }
-
-    p = StockPortfolio()
-
-    for st, data in stock_data.items():
-        p.add_stock(st)
-        d, sh, bp, f, cp = data
-        p.buy(st, d, sh, bp, f)
-        p.set_price(st, cp)
-
-    print(p.cost_value)
-    print(p.market_value)
-    print(p.fees)
-    print(p.dividends)
-
-    print(json.dumps(p, cls=StockEncoder))
-    pa = StockDecoder().decode(StockEncoder().encode(p))
-
-    print(pa.cost_value)
-    print(pa.market_value)
-    print(pa.fees)
-    print(pa.dividends)
+    def clear_select(self, symbol):
+        pub.sendMessage('stock.overview', data={})
+        pub.sendMessage('stock.position', data={})
+        pub.sendMessage('stock.results', data={})
+        pub.sendMessage('stock.projection', data={})
+        pub.sendMessage('stock.transactions', data={})
