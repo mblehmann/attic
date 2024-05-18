@@ -1,0 +1,104 @@
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+
+
+@dataclass
+class StockMetrics:
+    year: int
+    market_capitalization: float
+    earnings_per_share: float
+    closing_price: float
+    book_value_per_share: Optional[float]
+    dividend_per_share: float
+
+    @property
+    def pe_ratio(self) -> Optional[float]:
+        if self.earnings_per_share > 0:
+            return round(self.closing_price / self.earnings_per_share, 2)
+        return None
+
+    @property
+    def price_per_book_value(self) -> Optional[float]:
+        if self.book_value_per_share:
+            return round(self.closing_price / self.book_value_per_share, 2)
+        return None
+    
+    @property
+    def dividend_yield(self) -> float:
+        return round(self.dividend_per_share / self.closing_price * 100, 2)
+
+    def to_dict(self) -> Dict[str, str]:
+        return {
+            'Year': f'{self.year}',
+            'Market Capitalization': f'{self.market_capitalization:.3f}' if self.market_capitalization is not None else '-',
+            'Earnings per Share': f'{self.earnings_per_share:.2f}',
+            'Closing Price': f'{self.closing_price:.2f}',
+            'P/E Ratio': f'{self.pe_ratio:.2f}' if self.pe_ratio is not None else '-',
+            'Book Value per Share': f'{self.book_value_per_share:.2f}' if self.book_value_per_share is not None else '-',
+            'Price per Book Value': f'{self.price_per_book_value:.2f}' if self.price_per_book_value is not None else '-',
+            'Dividend per Share': f'{self.dividend_per_share:.2f}',
+            'Dividend Yield': f'{self.dividend_yield:.2f}',
+        }
+
+
+@dataclass
+class StockAggregate:
+    year: int
+    earnings_per_share: float
+    pe_ratio: float
+    price_per_book_value: Optional[float]
+    dividends_yield: float
+
+    @property
+    def multiplier(self) -> float:
+        return round(self.pe_ratio * self.price_per_book_value, 2)
+
+
+@dataclass
+class Stock:
+    symbol: str
+    name: str
+    sector: str
+    current_price: float
+    year_data: Dict[int, StockMetrics] = field(default_factory=dict)
+    aggregate_data: Dict[int, StockAggregate] = field(default_factory=dict)
+
+    def calculate_aggregation(self) -> None:
+        for year in self.year_data.keys():
+            aggregate = self.create_aggregation(year)
+            self.aggregate_data[year] = aggregate
+
+    def create_aggregation(self, year: int) -> StockAggregate:
+        period = self.get_period(year, 3)
+        earnings_per_share = self.average([metric.earnings_per_share for metric in period])
+        pe_ratio = round(period[0].closing_price / earnings_per_share, 2) if earnings_per_share > 0 else None
+        price_per_book_value = self.average([metric.price_per_book_value for metric in period if metric.price_per_book_value is not None])        
+        period = self.get_period(year, 5)
+        dividends_yield = self.average([metric.dividend_yield for metric in period])
+        return StockAggregate(year, earnings_per_share, pe_ratio, price_per_book_value, dividends_yield)
+
+    def average(self, values: List[float]) -> Optional[float]:
+        if len(values) == 0:
+            return None
+        return round(sum(values) / len(values), 2)
+    
+    def get_period(self, year: int, duration: int) -> List[StockMetrics]:
+        period = [value for value in range(year, year-duration, -1)]
+        return [metric for ye, metric in self.year_data.items() if ye in period]
+
+    @property
+    def growth(self) -> Optional[float]:
+        end_year = max(self.aggregate_data.keys())
+        begin_year = end_year - 10
+        while begin_year not in self.aggregate_data:
+            begin_year += 1
+        if self.aggregate_data[end_year].earnings_per_share is None or self.aggregate_data[end_year].earnings_per_share <= 0:
+            return None
+        if self.aggregate_data[begin_year].earnings_per_share is None or self.aggregate_data[begin_year].earnings_per_share <= 0:
+            return None
+        return round((self.aggregate_data[end_year].earnings_per_share / self.aggregate_data[begin_year].earnings_per_share - 1) * 100, 2)
+
+
+@dataclass
+class Portfolio:
+    stocks: Dict[str, Stock] = field(default_factory=dict)
