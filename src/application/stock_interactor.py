@@ -1,5 +1,5 @@
 from prettytable import PrettyTable
-from src.domain.stock import Portfolio, Stock, StockMetrics
+from src.domain.stock import Stock, StockMetrics
 from src.application.interface import PersistenceInterface, RepositoryInterface
 
 
@@ -34,16 +34,6 @@ class CalculateAggregateDataUseCase:
             stock.calculate_aggregation()
 
 
-class ListStocksUseCase:
-
-    def __init__(self, repository: RepositoryInterface) -> None:
-        self.repository = repository
-
-    def execute(self) -> None:
-        for stock in self.repository.get_stocks():
-            print(stock.symbol)
-
-
 class GetStockYearDataUseCase:
 
     def __init__(self, repository: RepositoryInterface) -> None:
@@ -58,6 +48,37 @@ class GetStockYearDataUseCase:
             table.field_names = list(data.to_dict().keys())
             table.add_row(list(data.to_dict().values()))
         print(table)
+        print()
+
+
+class GetStockAggregateDataUseCase:
+
+    def __init__(self, repository: RepositoryInterface) -> None:
+        self.repository = repository
+
+    def execute(self, symbol: str) -> None:
+        stock = self.repository.get_stock(symbol)
+        if stock is None:
+            return
+        table = PrettyTable()
+        for data in sorted(stock.aggregate_data.values(), key=lambda x: x.year, reverse=True):
+            table.field_names = list(data.to_dict().keys())
+            table.add_row(list(data.to_dict().values()))
+        print(table)
+        print()
+
+
+class GetStockCurrentDataUseCase:
+
+    def __init__(self, repository: RepositoryInterface) -> None:
+        self.repository = repository
+
+    def execute(self, symbol: str) -> None:
+        stock = self.repository.get_stock(symbol)
+        if stock is None:
+            return
+        print(stock.year_data[2023].to_dict())
+        print(stock.aggregate_data[2023].to_dict())
         print()
 
 

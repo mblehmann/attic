@@ -38,7 +38,7 @@ class StockEncoder(json.JSONEncoder):
                 'earnings_per_share': object.earnings_per_share,
                 'pe_ratio': object.pe_ratio,
                 'price_per_book_value': object.price_per_book_value,
-                'dividends_yield': object.dividends_yield,
+                'dividends_yield': object.dividend_yield,
             }
         else:
             return super().default(object)

@@ -39,7 +39,7 @@ class TestStock(unittest.TestCase):
         self.assertAlmostEqual(1.85, aggregation.earnings_per_share, 2)
         self.assertAlmostEqual(20.26, aggregation.pe_ratio, 2)
         self.assertAlmostEqual(3.08, aggregation.price_per_book_value, 2)
-        self.assertAlmostEqual(2.85, aggregation.dividends_yield, 2)
+        self.assertAlmostEqual(2.85, aggregation.dividend_yield, 2)
         self.assertAlmostEqual(62.36, aggregation.multiplier, 2)
 
     def test_calculate_aggregation(self):

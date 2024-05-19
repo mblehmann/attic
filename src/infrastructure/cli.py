@@ -21,13 +21,17 @@ class StockCmd(cmd.Cmd):
         """calculate_aggregate: Calculates the aggregate for all stocks"""
         self.controller.calculate_aggregate()
 
-    def do_list_stocks(self, _: str) -> None:
-        """list_stocks: Lists all stocks"""
-        self.controller.list_stocks()
-
     def do_get_stock_year_data(self, _: str) -> None:
-        """get_stock_year_data: Gets stock year data of a stock"""
+        """get_stock_year_data: Gets year data of a stock"""
         self.controller.get_stock_year_data()
+
+    def do_get_stock_aggregate_data(self, _: str) -> None:
+        """get_stock_aggregate_data: Gets aggregate data of a stock"""
+        self.controller.get_stock_aggregate_data()
+
+    def do_get_stock_current_data(self, _: str) -> None:
+        """get_stock_current_data: Gets current data of a stock"""
+        self.controller.get_stock_current_data()
 
     def do_save(self, _: str) -> None:
         """save: Saves portfolio"""

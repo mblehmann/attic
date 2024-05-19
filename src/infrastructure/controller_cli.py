@@ -1,5 +1,5 @@
 import os
-from src.application.stock_interactor import AddStockYearDataUseCase, CalculateAggregateDataUseCase, CreateStockUseCase, GetStockYearDataUseCase, ListStocksUseCase, LoadPortfolioUseCase, SavePortfolioUseCase
+from src.application.stock_interactor import AddStockYearDataUseCase, CalculateAggregateDataUseCase, CreateStockUseCase, GetStockAggregateDataUseCase, GetStockCurrentDataUseCase, GetStockYearDataUseCase, LoadPortfolioUseCase, SavePortfolioUseCase
 
 
 class CliController:
@@ -8,15 +8,17 @@ class CliController:
                  create_stock_use_case: CreateStockUseCase,
                  add_stock_year_data_use_case: AddStockYearDataUseCase,
                  calculate_aggregate_data_use_case: CalculateAggregateDataUseCase,
-                 list_stocks_use_case: ListStocksUseCase,
                  get_stock_year_data_use_case: GetStockYearDataUseCase,
+                 get_stock_aggregate_data_use_case: GetStockAggregateDataUseCase,
+                 get_stock_current_data_use_case: GetStockCurrentDataUseCase,
                  save_portfolio_use_case: SavePortfolioUseCase,
                  load_portfolio_use_case: LoadPortfolioUseCase) -> None:
         self.create_stock_use_case = create_stock_use_case
         self.add_stock_year_data_use_case = add_stock_year_data_use_case
         self.calculate_aggregate_data_use_case = calculate_aggregate_data_use_case
-        self.list_stocks_use_case = list_stocks_use_case
         self.get_stock_year_data_use_case = get_stock_year_data_use_case
+        self.get_stock_aggregate_data_use_case = get_stock_aggregate_data_use_case
+        self.get_stock_current_data_use_case = get_stock_current_data_use_case
         self.save_portfolio_use_case = save_portfolio_use_case
         self.load_portfolio_use_case = load_portfolio_use_case
         self.filename = None
@@ -48,12 +50,17 @@ class CliController:
     def calculate_aggregate(self) -> None:
         self.calculate_aggregate_data_use_case.execute()
 
-    def list_stocks(self) -> None:
-        self.list_stocks_use_case.execute()
-
     def get_stock_year_data(self) -> None:
         symbol = input('Symbol: ')
         self.get_stock_year_data_use_case.execute(symbol)
+
+    def get_stock_aggregate_data(self) -> None:
+        symbol = input('Symbol: ')
+        self.get_stock_aggregate_data_use_case.execute(symbol)
+
+    def get_stock_current_data(self) -> None:
+        symbol = input('Symbol: ')
+        self.get_stock_current_data_use_case.execute(symbol)
 
     def save_portfolio(self) -> None:
         if self.filename is None:

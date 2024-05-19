@@ -47,11 +47,21 @@ class StockAggregate:
     earnings_per_share: float
     pe_ratio: float
     price_per_book_value: Optional[float]
-    dividends_yield: float
+    dividend_yield: float
 
     @property
     def multiplier(self) -> float:
         return self.pe_ratio * self.price_per_book_value
+
+    def to_dict(self) -> Dict[str, str]:
+        return {
+            'Year': f'{self.year}',
+            'Earnings per Share': f'{self.earnings_per_share:.2f}' if self.earnings_per_share is not None else '-',
+            'P/E Ratio': f'{self.pe_ratio:.2f}' if self.pe_ratio is not None else '-',
+            'Price per Book Value': f'{self.price_per_book_value:.2f}' if self.price_per_book_value is not None else '-',
+            'Multiplier': f'{self.multiplier:.2f}',
+            'Dividend Yield': f'{self.dividend_yield:.2f}',
+        }
 
 
 @dataclass
