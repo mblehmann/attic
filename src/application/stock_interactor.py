@@ -1,6 +1,6 @@
 from prettytable import PrettyTable
 from src.domain.stock import Portfolio, Stock, StockMetrics
-from src.application.interface import RepositoryInterface
+from src.application.interface import PersistenceInterface
 
 
 class CreateStockUseCase:
@@ -62,7 +62,7 @@ class GetStockYearDataUseCase:
 
 class SavePortfolioUseCase:
 
-    def __init__(self, portfolio: Portfolio, repository: RepositoryInterface) -> None:
+    def __init__(self, portfolio: Portfolio, repository: PersistenceInterface) -> None:
         self.portfolio = portfolio
         self.repository = repository
 
@@ -72,7 +72,7 @@ class SavePortfolioUseCase:
 
 class LoadPortfolioUseCase:
 
-    def __init__(self, portfolio: Portfolio, repository: RepositoryInterface) -> None:
+    def __init__(self, portfolio: Portfolio, repository: PersistenceInterface) -> None:
         self.portfolio = portfolio
         self.repository = repository
 

@@ -5,12 +5,12 @@ from src.application.stock_interactor import AddStockYearDataUseCase, CalculateA
 from src.domain.stock import Portfolio
 from src.infrastructure.cli import StockCmd
 from src.infrastructure.controller_cli import CliController
-from src.infrastructure.repository import JSONRepository
+from src.infrastructure.persistence import JSONPersistence
 
 
 if __name__ == '__main__':
     portfolio = Portfolio()
-    repository = JSONRepository()
+    repository = JSONPersistence()
     create_stock_use_case = CreateStockUseCase(portfolio)
     add_stock_year_data_use_case = AddStockYearDataUseCase(portfolio)
     calculate_aggregate_data_use_case = CalculateAggregateDataUseCase(portfolio)
