@@ -14,18 +14,18 @@ class StockMetrics:
     @property
     def pe_ratio(self) -> Optional[float]:
         if self.earnings_per_share > 0:
-            return round(self.closing_price / self.earnings_per_share, 2)
+            return self.closing_price / self.earnings_per_share
         return None
 
     @property
     def price_per_book_value(self) -> Optional[float]:
         if self.book_value_per_share:
-            return round(self.closing_price / self.book_value_per_share, 2)
+            return self.closing_price / self.book_value_per_share
         return None
     
     @property
     def dividend_yield(self) -> float:
-        return round(self.dividend_per_share / self.closing_price * 100, 2)
+        return self.dividend_per_share / self.closing_price * 100
 
     def to_dict(self) -> Dict[str, str]:
         return {
@@ -51,7 +51,7 @@ class StockAggregate:
 
     @property
     def multiplier(self) -> float:
-        return round(self.pe_ratio * self.price_per_book_value, 2)
+        return self.pe_ratio * self.price_per_book_value
 
 
 @dataclass
@@ -80,7 +80,7 @@ class Stock:
     def average(self, values: List[float]) -> Optional[float]:
         if len(values) == 0:
             return None
-        return round(sum(values) / len(values), 2)
+        return sum(values) / len(values)
     
     def get_period(self, year: int, duration: int) -> List[StockMetrics]:
         period = [value for value in range(year, year-duration, -1)]
@@ -92,12 +92,12 @@ class Stock:
         begin_year = end_year - 10
         while begin_year not in self.aggregate_data:
             begin_year += 1
-        if self.aggregate_data[end_year].earnings_per_share is None or self.aggregate_data[end_year].earnings_per_share <= 0:
-            return None
-        if self.aggregate_data[begin_year].earnings_per_share is None or self.aggregate_data[begin_year].earnings_per_share <= 0:
-            return None
-        return round((self.aggregate_data[end_year].earnings_per_share / self.aggregate_data[begin_year].earnings_per_share - 1) * 100, 2)
-
+        if self._is_earning_per_share_valid(self.aggregate_data[end_year].earnings_per_share) and self._is_earning_per_share_valid(self.aggregate_data[begin_year].earnings_per_share):
+            return (self.aggregate_data[end_year].earnings_per_share / self.aggregate_data[begin_year].earnings_per_share - 1) * 100
+        return None
+    
+    def _is_earning_per_share_valid(self, earning_per_share: Optional[float]) -> bool:
+        return earning_per_share is not None and earning_per_share > 0
 
 @dataclass
 class Portfolio:
