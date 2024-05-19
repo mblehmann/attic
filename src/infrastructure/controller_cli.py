@@ -1,3 +1,4 @@
+import os
 from src.application.stock_interactor import AddStockYearDataUseCase, CalculateAggregateDataUseCase, CreateStockUseCase, GetStockYearDataUseCase, ListStocksUseCase, LoadPortfolioUseCase, SavePortfolioUseCase
 
 
@@ -57,9 +58,11 @@ class CliController:
     def save_portfolio(self) -> None:
         if self.filename is None:
             self.filename = input('Filename: ')
+            self.filename = os.path.join('data', self.filename)
         self.save_portfolio_use_case.execute(self.filename)
 
     def load_portfolio(self) -> None:
         if self.filename is None:
             self.filename = input('Filename: ')
+            self.filename = os.path.join('data', self.filename)
         self.load_portfolio_use_case.execute(self.filename)
