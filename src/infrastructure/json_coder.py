@@ -37,6 +37,7 @@ class StockEncoder(json.JSONEncoder):
                 'year': object.year,
                 'earnings_per_share': object.earnings_per_share,
                 'pe_ratio': object.pe_ratio,
+                'growth': object.growth,
                 'price_per_book_value': object.price_per_book_value,
                 'dividends_yield': object.dividend_yield,
             }
@@ -54,5 +55,5 @@ def decode_stock(object: Dict) -> Portfolio:
         elif object['object'] == 'StockMetrics':
             return StockMetrics(object['year'], object['market_capitalization'], object['earnings_per_share'], object['closing_price'], object['book_value_per_share'], object['dividend_per_share'])
         elif object['object'] == 'StockAggregate':
-            return StockAggregate(object['year'], object['earnings_per_share'], object['pe_ratio'], object['price_per_book_value'], object['dividends_yield'])
+            return StockAggregate(object['year'], object['earnings_per_share'], object['pe_ratio'], object['growth'], object['price_per_book_value'], object['dividends_yield'])
     return object
