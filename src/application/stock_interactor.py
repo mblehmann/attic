@@ -1,6 +1,6 @@
 from prettytable import PrettyTable
 from src.domain.stock import Stock, StockMetrics
-from src.application.interface import PersistenceInterface, RepositoryInterface
+from src.application.interface import PersistenceInterface, PresenterInterface, RepositoryInterface
 
 
 class CreateStockUseCase:
@@ -36,50 +36,41 @@ class CalculateAggregateDataUseCase:
 
 class GetStockYearDataUseCase:
 
-    def __init__(self, repository: RepositoryInterface) -> None:
+    def __init__(self, repository: RepositoryInterface, presenter: PresenterInterface) -> None:
         self.repository = repository
+        self.presenter = presenter
 
     def execute(self, symbol: str) -> None:
         stock = self.repository.get_stock(symbol)
         if stock is None:
             return
-        table = PrettyTable()
-        for data in sorted(stock.year_data.values(), key=lambda x: x.year, reverse=True):
-            table.field_names = list(data.to_dict().keys())
-            table.add_row(list(data.to_dict().values()))
-        print(table)
-        print()
+        self.presenter.show_year_data(stock.year_data)
 
 
 class GetStockAggregateDataUseCase:
 
-    def __init__(self, repository: RepositoryInterface) -> None:
+    def __init__(self, repository: RepositoryInterface, presenter: PresenterInterface) -> None:
         self.repository = repository
+        self.presenter = presenter
 
     def execute(self, symbol: str) -> None:
         stock = self.repository.get_stock(symbol)
         if stock is None:
             return
-        table = PrettyTable()
-        for data in sorted(stock.aggregate_data.values(), key=lambda x: x.year, reverse=True):
-            table.field_names = list(data.to_dict().keys())
-            table.add_row(list(data.to_dict().values()))
-        print(table)
-        print()
+        self.presenter.show_year_data(stock.aggregate_data)
 
 
 class GetStockCurrentDataUseCase:
 
-    def __init__(self, repository: RepositoryInterface) -> None:
+    def __init__(self, repository: RepositoryInterface, presenter: PresenterInterface) -> None:
         self.repository = repository
+        self.presenter = presenter
 
     def execute(self, symbol: str) -> None:
         stock = self.repository.get_stock(symbol)
         if stock is None:
             return
-        print(stock.year_data[2023].to_dict())
-        print(stock.aggregate_data[2023].to_dict())
-        print()
+        self.presenter.show_stock_data(stock)
 
 
 class SavePortfolioUseCase:

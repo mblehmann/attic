@@ -1,6 +1,6 @@
-from typing import List, Optional, Protocol
+from typing import Dict, List, Optional, Protocol
 
-from src.domain.stock import Portfolio, Stock, StockMetrics
+from src.domain.stock import Portfolio, Stock, StockAggregate, StockMetrics
 
 
 class PersistenceInterface(Protocol):
@@ -30,4 +30,16 @@ class RepositoryInterface(Protocol):
         ...
 
     def set_portfolio(self, portfolio: Portfolio) -> None:
+        ...
+
+
+class PresenterInterface(Protocol):
+
+    def show_year_data(self, year_data: Dict[int, StockMetrics]) -> None:
+        ...
+
+    def show_aggregate_data(self, aggregate_data: Dict[int, StockAggregate]) -> None:
+        ...
+
+    def show_stock_data(self, stock: Stock) -> None:
         ...
