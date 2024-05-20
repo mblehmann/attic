@@ -25,21 +25,8 @@ class StockMetrics:
     
     @property
     def dividend_yield(self) -> float:
-        return self.dividend_per_share / self.closing_price * 100
-
-    def to_dict(self) -> Dict[str, str]:
-        return {
-            'Year': f'{self.year}',
-            'Market Capitalization': f'{self.market_capitalization:.3f}' if self.market_capitalization is not None else '-',
-            'Earnings per Share': f'{self.earnings_per_share:.2f}',
-            'Closing Price': f'{self.closing_price:.2f}',
-            'P/E Ratio': f'{self.pe_ratio:.2f}' if self.pe_ratio is not None else '-',
-            'Book Value per Share': f'{self.book_value_per_share:.2f}' if self.book_value_per_share is not None else '-',
-            'Price per Book Value': f'{self.price_per_book_value:.2f}' if self.price_per_book_value is not None else '-',
-            'Dividend per Share': f'{self.dividend_per_share:.2f}',
-            'Dividend Yield': f'{self.dividend_yield:.2f}',
-        }
-
+        return self.dividend_per_share / self.closing_price
+    
 
 @dataclass
 class StockAggregate:
@@ -52,16 +39,6 @@ class StockAggregate:
     @property
     def multiplier(self) -> float:
         return self.pe_ratio * self.price_per_book_value
-
-    def to_dict(self) -> Dict[str, str]:
-        return {
-            'Year': f'{self.year}',
-            'Earnings per Share': f'{self.earnings_per_share:.2f}' if self.earnings_per_share is not None else '-',
-            'P/E Ratio': f'{self.pe_ratio:.2f}' if self.pe_ratio is not None else '-',
-            'Price per Book Value': f'{self.price_per_book_value:.2f}' if self.price_per_book_value is not None else '-',
-            'Multiplier': f'{self.multiplier:.2f}',
-            'Dividend Yield': f'{self.dividend_yield:.2f}',
-        }
 
 
 @dataclass
@@ -81,7 +58,7 @@ class Stock:
     def create_aggregation(self, year: int) -> StockAggregate:
         period = self.get_period(year, 3)
         earnings_per_share = self.average([metric.earnings_per_share for metric in period])
-        pe_ratio = round(period[0].closing_price / earnings_per_share, 2) if earnings_per_share > 0 else None
+        pe_ratio = period[0].closing_price / earnings_per_share if earnings_per_share > 0 else None
         price_per_book_value = self.average([metric.price_per_book_value for metric in period if metric.price_per_book_value is not None])        
         period = self.get_period(year, 5)
         dividends_yield = self.average([metric.dividend_yield for metric in period])
@@ -103,7 +80,7 @@ class Stock:
         while begin_year not in self.aggregate_data:
             begin_year += 1
         if self._is_earning_per_share_valid(self.aggregate_data[end_year].earnings_per_share) and self._is_earning_per_share_valid(self.aggregate_data[begin_year].earnings_per_share):
-            return (self.aggregate_data[end_year].earnings_per_share / self.aggregate_data[begin_year].earnings_per_share - 1) * 100
+            return (self.aggregate_data[end_year].earnings_per_share / self.aggregate_data[begin_year].earnings_per_share - 1)
         return None
     
     def _is_earning_per_share_valid(self, earning_per_share: Optional[float]) -> bool:

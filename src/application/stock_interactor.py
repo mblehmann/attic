@@ -44,7 +44,7 @@ class GetStockYearDataUseCase:
         stock = self.repository.get_stock(symbol)
         if stock is None:
             return
-        self.presenter.show_year_data(stock.year_data)
+        self.presenter.show_year_data(list(stock.year_data.values()))
 
 
 class GetStockAggregateDataUseCase:
@@ -57,7 +57,7 @@ class GetStockAggregateDataUseCase:
         stock = self.repository.get_stock(symbol)
         if stock is None:
             return
-        self.presenter.show_year_data(stock.aggregate_data)
+        self.presenter.show_year_data(list(stock.aggregate_data.values()))
 
 
 class GetStockCurrentDataUseCase:

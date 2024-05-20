@@ -29,9 +29,9 @@ class TestStock(unittest.TestCase):
         self.assertAlmostEqual(3.08, self.metrics[2018].price_per_book_value, 2)
 
     def test_dividend_yield(self) -> None:
-        self.assertAlmostEqual(2.67, self.metrics[2020].dividend_yield, 2)
-        self.assertAlmostEqual(1.30, self.metrics[2019].dividend_yield, 2)
-        self.assertAlmostEqual(3.86, self.metrics[2018].dividend_yield, 2)
+        self.assertAlmostEqual(0.0267, self.metrics[2020].dividend_yield, 4)
+        self.assertAlmostEqual(0.0130, self.metrics[2019].dividend_yield, 4)
+        self.assertAlmostEqual(0.0386, self.metrics[2018].dividend_yield, 4)
 
     def test_aggregation(self) -> None:
         aggregation = self.stock.create_aggregation(2020)
@@ -39,8 +39,8 @@ class TestStock(unittest.TestCase):
         self.assertAlmostEqual(1.85, aggregation.earnings_per_share, 2)
         self.assertAlmostEqual(20.26, aggregation.pe_ratio, 2)
         self.assertAlmostEqual(3.08, aggregation.price_per_book_value, 2)
-        self.assertAlmostEqual(2.85, aggregation.dividend_yield, 2)
-        self.assertAlmostEqual(62.36, aggregation.multiplier, 2)
+        self.assertAlmostEqual(0.0285, aggregation.dividend_yield, 4)
+        self.assertAlmostEqual(62.35, aggregation.multiplier, 2)
 
     def test_calculate_aggregation(self):
         self.stock.calculate_aggregation()
@@ -52,7 +52,7 @@ class TestStock(unittest.TestCase):
 
     def test_growth(self):
         self.stock.calculate_aggregation()
-        self.assertAlmostEqual(36.36, self.stock.growth, 2)
+        self.assertAlmostEqual(0.3636, self.stock.growth, 4)
 
 if __name__ == '__main__':
     unittest.main()
